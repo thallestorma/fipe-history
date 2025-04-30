@@ -1,14 +1,14 @@
-import { useRouter } from 'next/router';
-import { Fragment, useEffect, useState } from 'react';
+import { useRouter } from "next/router";
+import { Fragment, useEffect, useState } from "react";
 
-import { fetchPrice, fetchTables } from '../client/fipe';
-import Content from '../components/Content';
-import FAQ from '../components/FAQ';
-import FipeForm from '../components/FipeForm';
-import { COLORS } from '../components/FipePlot/constants';
-import Footer from '../components/Footer';
-import Header from '../components/Header';
-import Result from '../components/Result';
+import { fetchPrice, fetchTables } from "../client/fipe";
+import Content from "../components/Content";
+import FAQ from "../components/FAQ";
+import FipeForm from "../components/FipeForm";
+import { COLORS } from "../components/FipePlot/constants";
+import Footer from "../components/Footer";
+import Header from "../components/Header";
+import Result from "../components/Result";
 
 const Home = ({ currentQuery, initialData, tables }) => {
   const router = useRouter();
@@ -26,19 +26,24 @@ const Home = ({ currentQuery, initialData, tables }) => {
 
   const fetchData = async (vehicleQuery) => {
     for (const table of tables.slice(1, 24)) {
-      const res = await fetch(`/api/vehicles/${table.value}-${vehicleQuery}`);
-      const price = await res.json();
-      if (price.erro) {
+      const price = await fetchPrice(table.value, ...vehicleQuery.split("-"));
+      if (price.erro || !currentQuery.includes(vehicleQuery)) {
         break;
       }
-      setData((prevData) => ({
-        ...prevData,
-        [vehicleQuery]: [price, ...prevData[vehicleQuery]]
-      }));
+      try {
+        setData((prevData) => ({
+          ...prevData,
+          [vehicleQuery]: [price, ...prevData[vehicleQuery]],
+        }));
+      } catch (error) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
     }
   };
 
-  const scrollToResult = () => document.getElementById('resultado').scrollIntoView();
+  const scrollToResult = () =>
+    document.getElementById("resultado").scrollIntoView();
 
   const onFormSubmit = async (formData) => {
     const query = `${formData.type}-${formData.brand}-${formData.model}-${formData.year}-${formData.fuel}`;
@@ -46,8 +51,8 @@ const Home = ({ currentQuery, initialData, tables }) => {
       currentQuery.push(query);
     }
     window.goatcounter.count({
-        path:  `add-${currentQuery}`,
-        event: true,
+      path: `add-${currentQuery}`,
+      event: true,
     });
     loadResults(currentQuery);
   };
@@ -56,20 +61,21 @@ const Home = ({ currentQuery, initialData, tables }) => {
     const index = currentQuery.indexOf(vehicleQuery);
     currentQuery.splice(index, 1);
     window.goatcounter.count({
-      path:  `remove-${currentQuery}`,
+      path: `remove-${currentQuery}`,
       event: true,
-  })
+    });
     loadResults(currentQuery);
   };
 
   const loadResults = (query) => {
     setData({});
-    router.push({
-        pathname: '/',
+    router.push(
+      {
+        pathname: "/",
         query: { veiculo: query },
       },
       `/?veiculo=${query.join("&veiculo=")}`,
-      { scroll: false },
+      { scroll: false }
     );
   };
 
@@ -79,7 +85,11 @@ const Home = ({ currentQuery, initialData, tables }) => {
         <Header />
         <div className="mt-10 md:grid md:grid-cols-2 md:gap-x-16">
           <Content />
-          <FipeForm onSubmit={onFormSubmit} table={tables.length && tables[0].value} disabled={currentQuery.length >= COLORS.length} />
+          <FipeForm
+            onSubmit={onFormSubmit}
+            table={tables.length && tables[0].value}
+            disabled={currentQuery.length >= COLORS.length}
+          />
         </div>
         <Result data={data} onRemoveResult={onRemoveResult} />
         <FAQ />
@@ -94,12 +104,14 @@ export async function getServerSideProps({ query }) {
   let initialData = {};
 
   if (query && query.veiculo) {
-    const vehicleQuery = Array.isArray(query.veiculo) ? query.veiculo : [query.veiculo];
+    const vehicleQuery = Array.isArray(query.veiculo)
+      ? query.veiculo
+      : [query.veiculo];
     for (let index = 0; index < vehicleQuery.length; index++) {
       const element = vehicleQuery[index];
       const initialPrice = await fetchPrice(
         tables[0].value,
-        ...element.split("-"),
+        ...element.split("-")
       );
       if (!initialPrice.erro) {
         initialData[element] = [initialPrice];
@@ -113,7 +125,7 @@ export async function getServerSideProps({ query }) {
       tables,
       currentQuery: Object.keys(initialData),
     },
-  }
-};
+  };
+}
 
 export default Home;
